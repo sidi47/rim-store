@@ -283,8 +283,12 @@ async function initDB() {
   
   try {
     const d = await fbGet('products');
-    products = Array.isArray(d) && d.length > 0 ? d : DEFAULT_PRODUCTS;
-    if (!Array.isArray(d) || d.length === 0) {
+    if (d && typeof d === 'object') {
+      // Firebase may return object or array
+      const arr = Array.isArray(d) ? d : Object.values(d);
+      products = arr.length > 0 ? arr : DEFAULT_PRODUCTS;
+    } else {
+      products = DEFAULT_PRODUCTS;
       await fbSet('products', DEFAULT_PRODUCTS);
     }
   } catch(e) {
@@ -293,7 +297,11 @@ async function initDB() {
 
   try {
     const d = await fbGet('orders');
-    orders = Array.isArray(d) ? d : [];
+    if (d && typeof d === 'object') {
+      orders = Array.isArray(d) ? d : Object.values(d);
+    } else {
+      orders = [];
+    }
   } catch(e) {
     orders = [];
   }
