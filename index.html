@@ -454,7 +454,8 @@ function renderLogin(){
 function renderAdmin(){
   const fp2=n=>Number(n).toLocaleString('fr-FR');
   const stats={total:orders.length,pending:orders.filter(o=>o.status==='pending').length,delivered:orders.filter(o=>o.status==='delivered').length,revenue:orders.filter(o=>o.status==='delivered').reduce((s,o)=>s+(o.price||0),0),active:products.filter(p=>p.active!==false).length};
-  return `<div class="adm"><div id="notif-box"></div><div class="adm-nav"><div class="logo">${STORE_NAME} — Admin</div><div class="adm-tabs"><button class="atab${adminTab==='orders'?' on':''}" id="tab-orders">📦 الطلبات${orders.length>0?` (${orders.length})`:''}</button><button class="atab${adminTab==='products'?' on':''}" id="tab-products">🛍️ المنتجات (${products.length})</button><button class="atab atab-red" id="logout-btn">خروج</button></div></div>
+  return `<div class="adm"><div id="notif-box"></div><div class="adm-nav"><div class="logo">${STORE_NAME} — Admin</div><div class="adm-tabs"><button class="atab${adminTab==='orders'?' on':''}" id="tab-orders">📦 الطلبات${orders.length>0?` (${orders.length})`:''}</button><button class="atab${adminTab==='products'?' on':''}" id="tab-products">🛍️ المنتجات (${products.length})</button><button class="atab atab-red" id="logout-btn">خروج</button><button class="atab" id="show-ids-btn" style="background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.4);color:#60a5fa">🔑 IDs</button></div></div>
+  <div id="ids-box" style="display:none;background:#0f172a;border:2px solid rgba(59,130,246,0.5);border-radius:12px;padding:16px;margin:12px 16px;font-size:14px;direction:ltr"><div style="color:#60a5fa;font-weight:900;margin-bottom:10px">📋 أرسل هذه الـ IDs للمطور</div><div style="margin-bottom:8px">🛍️ Products ID: <b id="show-pid" style="color:#f0d060;word-break:break-all"></b></div><div>📦 Orders ID: <b id="show-oid" style="color:#f0d060;word-break:break-all"></b></div></div>
   <div class="adm-body"><div class="stats-grid"><div class="stat-card"><div class="stat-n">${stats.total}</div><div class="stat-l">📦 إجمالي الطلبات</div></div><div class="stat-card"><div class="stat-n" style="color:var(--warn)">${stats.pending}</div><div class="stat-l">⏳ قيد الانتظار</div></div><div class="stat-card"><div class="stat-n" style="color:var(--green)">${stats.delivered}</div><div class="stat-l">✅ تم التوصيل</div></div><div class="stat-card"><div class="stat-n" style="font-size:20px">${fp2(stats.revenue)}</div><div class="stat-l">💰 المبيعات (MRU)</div></div><div class="stat-card"><div class="stat-n">${stats.active}</div><div class="stat-l">🛍️ منتجات نشطة</div></div></div>
   ${adminTab==='orders'?renderOrdersTab(fp2):renderProductsTab()}</div></div>`;
 }
@@ -557,6 +558,12 @@ function bindEvents(){
     document.getElementById('tab-orders')?.addEventListener('click',()=>{adminTab='orders';render();});
     document.getElementById('tab-products')?.addEventListener('click',()=>{adminTab='products';editForm=null;render();});
     document.getElementById('logout-btn')?.addEventListener('click',()=>{adminAuth=false;view='store';render();});
+    document.getElementById('show-ids-btn')?.addEventListener('click',()=>{
+      const box=document.getElementById('ids-box');
+      box.style.display=box.style.display==='none'?'block':'none';
+      document.getElementById('show-pid').textContent=BIN_ID_P||'لم يُنشأ بعد';
+      document.getElementById('show-oid').textContent=BIN_ID_O||'لم يُنشأ بعد';
+    });
     if(adminTab==='orders'){
       document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{orderFilter=b.dataset.filter;confirmOId=null;render();});
       document.querySelectorAll('[data-mark]').forEach(b=>b.onclick=async()=>{const updated=orders.map(o=>o.id===Number(b.dataset.mark)?{...o,status:b.dataset.status}:o);await saveOrders(updated);showNotif('✅ تم التحديث');render();});
