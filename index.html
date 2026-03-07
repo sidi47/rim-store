@@ -223,12 +223,8 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(201,168,76,0.02)
 <div id="app"><div class="loading">⏳ جاري تحميل المتجر...</div></div>
 
 <script>
-// ── JSONBin Config ──
-const MASTER_KEY = '$2a$10$P4toD/Eto.eY6Vu29R4MxOLC9UIaFfkl6owE26cdeLwgZrSjKe4/2';
-const BIN_NAME_P = 'rim-products';
-const BIN_NAME_O = 'rim-orders';
-let BIN_ID_P = '69ab706f43b1c97be9bbd27b';
-let BIN_ID_O = '69ab706fae596e708f679e27';
+// ── Firebase Config ──
+const FB_URL = 'https://rim-store-6f099-default-rtdb.firebaseio.com';
 
 const STORE_NAME = "RIM STORE";
 const ADMIN_PASS = "rimstore2024";
@@ -251,37 +247,24 @@ const DEFAULT_PRODUCTS = [
   {id:3,name:"كريم تفتيح فاخر",subtitle:"بشرة مشرقة في أسبوع",price:1200,oldPrice:1800,stock:20,badge:"الأكثر طلباً",category:"beauty",countdownHours:6,description:"كريم طبيعي 100% يعمل على تفتيح البشرة وترطيبها بعمق.",features:["مكونات طبيعية 100%","نتائج خلال أسبوع","مناسب لكل البشرة","بدون مواد ضارة"],images:["https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=600&h=600&fit=crop"],active:true,createdAt:new Date().toISOString()},
 ];
 
-// ── JSONBin API ──
-async function binGet(binId) {
+// ── Firebase API ──
+async function fbGet(path) {
   try {
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-      headers: {'X-Master-Key': MASTER_KEY}
-    });
-    const d = await r.json();
-    return d.record;
+    const r = await fetch(FB_URL + '/' + path + '.json');
+    return await r.json();
   } catch { return null; }
 }
 
-async function binSet(binId, data) {
+async function fbSet(path, data) {
   try {
-    await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+    const r = await fetch(FB_URL + '/' + path + '.json', {
       method: 'PUT',
-      headers: {'Content-Type':'application/json','X-Master-Key': MASTER_KEY},
-      body: JSON.stringify(data)
-    });
-  } catch {}
-}
-
-async function binCreate(name, data) {
-  try {
-    const r = await fetch('https://api.jsonbin.io/v3/b', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','X-Master-Key': MASTER_KEY,'X-Bin-Name': name,'X-Bin-Private':'false'},
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify(data)
     });
     const d = await r.json();
-    return d.metadata?.id || null;
-  } catch { return null; }
+    return d;
+  } catch(e) { return null; }
 }
 
 // ── Init ──
@@ -299,24 +282,18 @@ async function initDB() {
   document.getElementById('app').innerHTML = '<div style="color:#c9a84c;text-align:center;padding:60px;font-size:18px">⏳ جاري تحميل المنتجات...</div>';
   
   try {
-    const r = await fetch('https://api.jsonbin.io/v3/b/' + BIN_ID_P + '/latest', {
-      headers: {'X-Master-Key': MASTER_KEY}
-    });
-    const d = await r.json();
-    console.log('JSONBin response:', JSON.stringify(d).substring(0,200));
-    if (d && d.record && d.record.products) {
-      products = d.record.products;
-    } else {
-      products = DEFAULT_PRODUCTS;
+    const d = await fbGet('products');
+    products = Array.isArray(d) && d.length > 0 ? d : DEFAULT_PRODUCTS;
+    if (!Array.isArray(d) || d.length === 0) {
+      await fbSet('products', DEFAULT_PRODUCTS);
     }
   } catch(e) {
-    console.log('JSONBin error:', e);
     products = DEFAULT_PRODUCTS;
   }
 
   try {
-    const d = await binGet(BIN_ID_O);
-    orders = d?.orders || [];
+    const d = await fbGet('orders');
+    orders = Array.isArray(d) ? d : [];
   } catch(e) {
     orders = [];
   }
@@ -324,7 +301,7 @@ async function initDB() {
   // DEBUG - remove later
   const dbg = document.createElement('div');
   dbg.style.cssText = 'position:fixed;bottom:80px;left:10px;right:10px;background:#1a1a2e;border:2px solid #c9a84c;border-radius:10px;padding:12px;font-size:12px;z-index:9999;direction:ltr;word-break:break-all';
-  dbg.innerHTML = '🔍 Products loaded: <b style="color:#f0d060">' + products.length + '</b><br>BIN_ID: <span style="color:#60a5fa">' + BIN_ID_P + '</span>';
+  dbg.innerHTML = '🔍 Products loaded: <b style="color:#f0d060">' + products.length + '</b><br>DB: <span style="color:#60a5fa">Firebase ✅</span>';
   document.body.appendChild(dbg);
   setTimeout(()=>dbg.remove(), 8000);
 
@@ -334,36 +311,19 @@ async function initDB() {
 async function saveProducts(p) {
   products = p;
   showNotif('⏳ جاري الحفظ...');
-  try {
-    const r = await fetch('https://api.jsonbin.io/v3/b/' + BIN_ID_P, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json','X-Master-Key': MASTER_KEY},
-      body: JSON.stringify({products: p})
-    });
-    const d = await r.json();
-    render();
-    if (d.metadata) {
-      return true;
-    } else {
-      showNotif('❌ خطأ JSONBin: ' + JSON.stringify(d).substring(0,80));
-      return false;
-    }
-  } catch(e) {
-    showNotif('❌ فشل الاتصال: ' + e.message);
-    render();
+  const d = await fbSet('products', p);
+  render();
+  if (d !== null) {
+    return true;
+  } else {
+    showNotif('❌ فشل الحفظ - تحقق من الإنترنت');
     return false;
   }
 }
 
 async function saveOrders(o) {
   orders = o;
-  try {
-    await fetch('https://api.jsonbin.io/v3/b/' + BIN_ID_O, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json','X-Master-Key': MASTER_KEY},
-      body: JSON.stringify({orders: o})
-    });
-  } catch(e) {}
+  await fbSet('orders', o);
 }
 
 // ── Utils ──
@@ -590,8 +550,8 @@ function bindEvents(){
     document.getElementById('show-ids-btn')?.addEventListener('click',()=>{
       const box=document.getElementById('ids-box');
       box.style.display=box.style.display==='none'?'block':'none';
-      document.getElementById('show-pid').textContent=BIN_ID_P||'لم يُنشأ بعد';
-      document.getElementById('show-oid').textContent=BIN_ID_O||'لم يُنشأ بعد';
+      document.getElementById('show-pid').textContent=FB_URL+'/products';
+      document.getElementById('show-oid').textContent=FB_URL+'/orders';
     });
     if(adminTab==='orders'){
       document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{orderFilter=b.dataset.filter;confirmOId=null;render();});
